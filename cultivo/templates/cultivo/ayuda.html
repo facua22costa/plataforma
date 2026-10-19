@@ -1,0 +1,41 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Ayuda{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>¿Cómo funciona?</h1>
+  <p class="sub">Una guía corta para usar el sistema sin conocimientos técnicos.</p></div>
+</section>
+
+<div class="panel-bloque">
+  <h2>La idea en tres pasos</h2>
+  <ol>
+    <li><strong>Mide.</strong> Los sensores registran el clima y el agua de riego todo el tiempo.</li>
+    <li><strong>Decide.</strong> Compara cada medición con el <em>plan de cultivo</em>: los valores ideales para la etapa del cultivo.</li>
+    <li><strong>Actúa.</strong> Si algo se sale de rango, enciende o apaga los equipos (extractores, calefacción) para corregirlo, y deja todo anotado.</li>
+  </ol>
+  <p>Vos podés tomar el control en cualquier momento con los botones del panel. Las acciones rápidas duran un tiempo y después el sistema vuelve solo a automático.</p>
+</div>
+
+<h2 style="margin:20px 0 12px">Qué significa cada medición</h2>
+<section class="ayuda-grilla">
+  {% for clave, info in variables %}
+  <article class="panel-bloque ayuda-tarjeta">
+    <h3>{% include "cultivo/_icono.html" with nombre=clave %}{{ info.nombre }}</h3>
+    <p>{{ info.que_es }}</p>
+    {% if info.bajo %}
+    <p class="nota"><strong>Si está bajo:</strong> {{ info.bajo.1 }} {{ info.consejo_bajo }}</p>
+    <p class="nota"><strong>Si está alto:</strong> {{ info.alto.1 }} {{ info.consejo_alto }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+<div class="panel-bloque" style="margin-top:16px">
+  <h2>Colores</h2>
+  <ul class="frases">
+    <li><span class="pastilla pastilla-ok"><span>Ideal</span></span> Dentro del rango de la receta.</li>
+    <li><span class="pastilla pastilla-atencion"><span>Un poco alto / bajo</span></span> Cerca del límite. Conviene mirarlo.</li>
+    <li><span class="pastilla pastilla-fuera"><span>Muy alto / bajo</span></span> Lejos del rango. El sistema avisa y actúa.</li>
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+# Infraestructura para producción (no hace falta para la demo con SQLite).
+# Levantar con: docker compose up -d
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: invernadero
+      POSTGRES_USER: invernadero
+      POSTGRES_PASSWORD: cambiar-esta-clave
+    ports: ["5432:5432"]
+    volumes: [datos_db:/var/lib/postgresql/data]
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes: [./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro]
+
+volumes:
+  datos_db:

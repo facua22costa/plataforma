@@ -1,0 +1,68 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Planes de cultivo{% endblock %}
+{% block scripts %}
+<script>
+  const selector = document.getElementById("etapa_inicial");
+  function cargarEtapas() {
+    const elegido = document.querySelector('input[name="cultivo"]:checked');
+    if (!elegido) return;
+    selector.innerHTML = elegido.dataset.etapas.split("|")
+      .map((nombre, i) => `<option value="${i + 1}">${nombre}</option>`).join("");
+  }
+  document.querySelectorAll('input[name="cultivo"]').forEach(r => r.addEventListener("change", cargarEtapas));
+  cargarEtapas();
+</script>
+{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>Planes de cultivo listos para usar</h1>
+  <p class="sub">Elegí qué vas a cultivar y el sistema se configura solo: etapas, clima ideal, solución nutritiva y avisos. Después los podés ajustar.</p></div>
+  {% if actual %}<a href="{% url 'mi_cultivo' sala.id %}"><button type="button">Ver mi plan actual ({{ actual.cultivo }})</button></a>{% endif %}
+</section>
+
+<form method="post" class="formulario-ciclo">{% csrf_token %}
+  <section class="cultivos">
+    {% for c in cultivos %}
+    <label class="cultivo-tarjeta">
+      <input type="radio" name="cultivo" value="{{ c.clave }}" data-etapas="{{ c.etapas|join:'|' }}" {% if c.clave == elegido %}checked{% endif %}>
+      <div class="cultivo-cuerpo">
+        {% if c.clave == clave_actual %}<span class="chip chip-acento chip-actual">Tu cultivo actual</span>{% endif %}
+        <h2>{{ c.nombre }}</h2>
+        <p class="nota">{{ c.sistema }} · ciclo de unos {{ c.dias }} días</p>
+        <p>{{ c.descripcion }}</p>
+        <p class="etapas-lista">{% for e in c.etapas %}<span>{{ e }}</span>{% if not forloop.last %}<span class="flecha-chica">→</span>{% endif %}{% endfor %}</p>
+        <dl class="rangos-mini">
+          <div><dt>Temperatura</dt><dd>{{ c.rangos.temperatura.0 }}–{{ c.rangos.temperatura.1 }} °C</dd></div>
+          <div><dt>Humedad</dt><dd>{{ c.rangos.humedad.0 }}–{{ c.rangos.humedad.1 }} %</dd></div>
+          <div><dt>pH</dt><dd>{{ c.rangos.ph.0 }}–{{ c.rangos.ph.1 }}</dd></div>
+          <div><dt>Nutrientes (EC)</dt><dd>{{ c.rangos.ec.0 }}–{{ c.rangos.ec.1 }} mS/cm</dd></div>
+        </dl>
+        <details class="que-es"><summary>¿De dónde salen estos valores?</summary>
+          <ul>{% for f in c.fuentes %}<li>{{ f }}</li>{% endfor %}</ul>
+        </details>
+      </div>
+    </label>
+    {% endfor %}
+    <a class="cultivo-tarjeta cultivo-propio" href="{% url 'admin:cultivo_receta_add' %}">
+      <div class="cultivo-cuerpo">
+        <h2>Otro cultivo</h2>
+        <p>Cargá tu propio plan con las etapas y los rangos que necesites. Sirve para cultivos medicinales, flores u otros de alto valor.</p>
+      </div>
+    </a>
+  </section>
+
+  <div class="panel-bloque formulario fila-form">
+    <div><label for="codigo_lote">Nombre del lote</label><input id="codigo_lote" name="codigo_lote" value="{{ sugerido }}" required></div>
+    <div><label for="fecha_inicio">Fecha de inicio</label><input id="fecha_inicio" type="date" name="fecha_inicio" value="{{ hoy }}"></div>
+    <div><label for="etapa_inicial">¿En qué etapa está hoy?</label><select id="etapa_inicial" name="etapa_inicial"></select></div>
+    <div><label for="fertilizacion">Fertilización</label>
+      <select id="fertilizacion" name="fertilizacion">
+        <option value="mineral">Mineral (fertilizantes minerales)</option>
+        <option value="organica">Orgánica</option>
+      </select></div>
+    <div><button class="primario">Empezar ciclo con este plan</button></div>
+    <p class="nota">Los valores de pH y EC de los planes son para fertilización mineral (hidroponía o fertirriego; en hidroponía solo se usa fertilización mineral). Si cultivás orgánico, el sistema controla el clima y deja el pH y la EC como dato informativo.</p>
+    <p class="nota">Si el cultivo ya estaba arrancado, elegí la etapa en la que está. Los cambios de etapa los decidís vos después, con un botón en el panel. Si ya había un ciclo en curso en {{ sala.nombre }}, se da por terminado.</p>
+  </div>
+</form>
+{% endblock %}

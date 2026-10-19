@@ -1,0 +1,92 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Mi cultivo{% endblock %}
+{% block contenido %}
+<section class="cultivo-hero">
+  <div class="cultivo-hero-icono">{% include "cultivo/_icono.html" with nombre="hoja" %}</div>
+  <div class="cultivo-hero-texto">
+    <p class="estado-pregunta">Estás cultivando</p>
+    <h1>{{ ciclo.cultivo }}</h1>
+    <p class="sub">Fertilización {{ ciclo.get_fertilizacion_display|lower }} · Lote {{ ciclo.codigo_lote }} · Etapa <strong>{{ etapa_actual.nombre|default:"—" }}</strong> (día {{ linea.dias_en_etapa|default:"—" }}) · Día {{ linea.dia }} del ciclo</p>
+    {% if receta.validada_por %}<p class="validada">{% include "cultivo/_icono.html" with nombre="ok" %}Plan revisado por {{ receta.validada_por }}</p>{% endif %}
+  </div>
+  <div class="cultivo-hero-acciones">
+    <a class="boton-grande" href="{% url 'nuevo_ciclo' sala.id %}">{% include "cultivo/_icono.html" with nombre="auto" %}<span><strong>Cambiar de cultivo</strong><small>Elegir otro plan</small></span></a>
+  </div>
+</section>
+
+<div class="panel-bloque cambiar-etapa">
+  <div>
+    <h2>¿En qué etapa está tu cultivo?</h2>
+    <p class="nota">Las etapas no tienen fecha fija: vos decidís cuándo pasa de una a otra. Si te equivocaste, podés volver a la anterior.</p>
+  </div>
+  <form method="post" action="{% url 'cambiar_etapa' ciclo.id %}" class="fila-form">{% csrf_token %}
+    <input type="hidden" name="volver" value="mi_cultivo">
+    <select name="etapa" aria-label="Etapa">
+      {% for e in etapas %}<option value="{{ e.etapa.id }}" {% if e.actual %}selected{% endif %}>{{ e.etapa.nombre }}</option>{% endfor %}
+    </select>
+    <button class="primario">Cambiar etapa</button>
+  </form>
+</div>
+
+{% if linea %}
+<div class="panel-bloque linea-ciclo-sola">
+  <div class="linea-barra">
+    {% for s in linea.segmentos %}
+    <div class="linea-segmento seg-{{ s.estado }}" style="flex: {{ s.ancho|stringformat:".2f" }} 1 0">
+      <strong>{{ s.nombre }}</strong>
+      <small>{% if s.estado == "pasada" %}{{ s.dias }} días{% elif s.estado == "actual" %}Ahora · día {{ s.dias }}{% else %}unos {{ s.estimado }} días{% endif %} · {{ s.horas_luz }} h de luz</small>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="panel-bloque explicacion-receta">
+  <h2>¿Qué es el plan de cultivo?</h2>
+  <p>Son los valores ideales de clima y de solución nutritiva para cada etapa de tu cultivo. El sistema los usa para decidir cuándo ventilar o calentar y para avisarte si algo se sale de rango. Vienen cargados de publicaciones técnicas, y los podés ajustar a tu experiencia.</p>
+</div>
+
+<form method="post">{% csrf_token %}
+  {% for e in etapas %}
+  <section class="panel-bloque etapa-receta {% if e.actual %}etapa-actual{% endif %}">
+    <header class="etapa-encabezado">
+      <h2>{{ forloop.counter }}. {{ e.etapa.nombre }}</h2>
+      <span class="nota">Unos {{ e.etapa.duracion_dias }} días de referencia · {{ e.etapa.horas_luz }} h de luz{% if e.inicio %} · empezó el {{ e.inicio|date:"d/m" }}{% else %} · todavía no{% endif %}</span>
+      {% if e.actual %}<span class="chip chip-acento">Etapa actual</span>{% endif %}
+    </header>
+    <table class="datos tabla-receta">
+      <thead><tr><th>Medición</th><th class="num">Mínimo</th><th class="num">Máximo</th><th>Aviso para esta etapa</th></tr></thead>
+      <tbody>
+      {% for f in e.filas %}
+        {% ifchanged f.grupo %}<tr class="fila-grupo"><td colspan="4">{% if f.grupo == "clima" %}Clima de la sala{% else %}Solución nutritiva <span class="nota">(fertilización mineral){% if ciclo.fertilizacion == "organica" %} · tu cultivo es orgánico: estos valores no se controlan{% endif %}</span>{% endif %}</td></tr>{% endifchanged %}
+        <tr>
+          <td><span class="celda-variable">{% include "cultivo/_icono.html" with nombre=f.variable %}{{ f.nombre }}</span></td>
+          <td class="num"><input class="entrada-num" name="min-{{ f.rango.id }}" value="{{ f.rango.minimo }}" inputmode="decimal" aria-label="{{ f.nombre }} mínimo"> <span class="nota">{{ f.unidad }}</span></td>
+          <td class="num"><input class="entrada-num" name="max-{{ f.rango.id }}" value="{{ f.rango.maximo }}" inputmode="decimal" aria-label="{{ f.nombre }} máximo"> <span class="nota">{{ f.unidad }}</span></td>
+          <td class="nota">{{ f.aviso|default:"" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+
+  <div class="panel-bloque formulario validacion">
+    <label for="validada_por">Revisado por (opcional)</label>
+    <input id="validada_por" name="validada_por" value="{{ receta.validada_por }}" placeholder="Ej.: Ing. Agr. Nombre Apellido, matrícula">
+    <p class="nota">Si un ingeniero agrónomo revisó y ajustó este plan, dejá su nombre: aparece en el panel.</p>
+  </div>
+
+  <div class="barra-guardar">
+    <button class="primario" name="accion" value="guardar">Guardar cambios</button>
+    {% if del_catalogo %}<button name="accion" value="restaurar" formnovalidate>Volver a los valores recomendados</button>{% endif %}
+  </div>
+</form>
+
+{% if receta.fuentes %}
+<details class="panel-bloque que-es" style="margin-top:16px">
+  <summary>¿De dónde salen estos valores?</summary>
+  <p style="white-space: pre-line">{{ receta.fuentes }}</p>
+</details>
+{% endif %}
+{% endblock %}

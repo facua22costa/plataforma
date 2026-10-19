@@ -1,0 +1,81 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Nuestro kit{% endblock %}
+{% block contenido %}
+<section class="kit-hero">
+  <div>
+    <p class="estado-pregunta">Hardware de la plataforma</p>
+    <h1>Nuestro kit de sensores</h1>
+    <p class="kit-bajada">Mide el clima real de tu cultivo cada pocos segundos. Con esos datos y el plan de tu cultivo, el sistema decide qué hacer con tus equipos y te avisa cuando algo se sale de lo ideal.</p>
+  </div>
+</section>
+
+<section class="kit-pasos">
+  <article class="kit-paso">
+    <span class="kit-numero">1</span>
+    <div><h2>Mide</h2><p>Los sensores del kit registran temperatura, humedad, CO₂ y, si querés, la hoja y el agua de riego. Todo en vivo, sin anotar nada.</p></div>
+  </article>
+  <span class="kit-flecha" aria-hidden="true">→</span>
+  <article class="kit-paso">
+    <span class="kit-numero">2</span>
+    <div><h2>Compara con tu plan de cultivo</h2><p>Cada medición se compara con los valores ideales de la etapa en la que está tu cultivo.</p></div>
+  </article>
+  <span class="kit-flecha" aria-hidden="true">→</span>
+  <article class="kit-paso">
+    <span class="kit-numero">3</span>
+    <div><h2>Actúa o te avisa</h2><p>Si tenés el equipo, lo prende o lo apaga. Si no lo tenés, te avisa qué pasa y qué te convendría sumar.</p></div>
+  </article>
+</section>
+
+<h2 class="titulo-seccion">Módulos del kit</h2>
+<section class="kit-modulos">
+  <article class="panel-bloque kit-modulo">
+    <header>{% include "cultivo/_icono.html" with nombre="temperatura" %}<div><h3>Clima</h3><span class="chip chip-acento">Incluido</span></div></header>
+    <ul>
+      <li>Placa ESP32 con WiFi</li>
+      <li>Sensor de temperatura y humedad de precisión (Sensirion SHT31 / SHT45)</li>
+      <li>Sensor de CO₂ real, no estimado (Sensirion SCD41)</li>
+    </ul>
+    <p class="nota">Con esto el sistema calcula la sequedad del aire (VPD) y controla la ventilación y la calefacción.</p>
+  </article>
+  <article class="panel-bloque kit-modulo">
+    <header>{% include "cultivo/_icono.html" with nombre="hoja" %}<div><h3>Hoja y luz</h3><span class="chip">Opcional</span></div></header>
+    <ul>
+      <li>Sensor infrarrojo de temperatura de hoja (MLX90614)</li>
+      <li>Sensor de luz (BH1750)</li>
+    </ul>
+    <p class="nota">Mide lo que siente la planta, no solo el aire, y confirma que las luces encendieron.</p>
+  </article>
+  <article class="panel-bloque kit-modulo">
+    <header>{% include "cultivo/_icono.html" with nombre="ph" %}<div><h3>Solución nutritiva</h3><span class="chip">Opcional</span></div></header>
+    <ul>
+      <li>Sondas de pH y de conductividad (EC) para el tanque</li>
+      <li>Sensor de temperatura del agua (DS18B20)</li>
+    </ul>
+    <p class="nota">Sin este módulo, cargás el pH y la EC una vez por día desde el panel, en dos toques. El sistema te lo recuerda.</p>
+  </article>
+  <article class="panel-bloque kit-modulo">
+    <header>{% include "cultivo/_icono.html" with nombre="extractor" %}<div><h3>Control de equipos</h3><span class="chip chip-acento">Incluido</span></div></header>
+    <ul>
+      <li>Funciona con los interruptores WiFi que ya tenés (Tuya / Smart Life, Shelly)</li>
+      <li>Relés propios para quien no tenga equipos automatizables</li>
+    </ul>
+    <p class="nota">Si se corta internet, los interruptores vuelven a su horario programado: el cultivo nunca queda sin control.</p>
+  </article>
+  <article class="panel-bloque kit-modulo">
+    <header>{% include "cultivo/_icono.html" with nombre="camara" %}<div><h3>Cámara</h3><span class="chip">Opcional</span></div></header>
+    <ul>
+      <li>Cámara WiFi apuntando al cultivo (ESP32-CAM)</li>
+      <li>También sirve un celular viejo o una cámara IP</li>
+    </ul>
+    <p class="nota">Ves la sala en vivo desde el panel y guardás fotos en la bitácora para comparar el crecimiento.</p>
+  </article>
+</section>
+
+<section class="panel-bloque kit-equipos">
+  <h2>¿Y si no tengo todos los equipos?</h2>
+  <p>No hace falta tenerlo todo. El sistema controla los equipos que tenés (extractores, calefacción, humidificador, deshumidificador, luces, riego) y, para lo que falta, <strong>te avisa y te recomienda</strong>. Por ejemplo: si el aire está seco y no hay humidificador, te lo dice para que sepas por qué tu cultivo no está en el punto ideal.</p>
+  {% if sala %}<a href="{% url 'equipos' sala.id %}"><button class="primario" type="button">Configurar mis equipos</button></a>{% endif %}
+</section>
+
+<p class="nota" style="margin-top:12px">Modelos de referencia del prototipo. Los componentes y costos finales del kit se definen en la etapa de validación.</p>
+{% endblock %}

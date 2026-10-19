@@ -1,0 +1,127 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Time-lapse · {{ ciclo.codigo_lote }}{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>Time-lapse del cultivo</h1>
+  <p class="sub">{{ ciclo.cultivo }} · lote {{ ciclo.codigo_lote }} · una foto por día, de principio a fin</p></div>
+  {% if camaras|length > 1 %}
+  <div class="selector-horas" role="group" aria-label="Cámara">
+    {% for c in camaras %}<a href="?camara={{ c.id }}"><button type="button" class="{% if c.id == camara_elegida %}activo{% endif %}">{{ c.nombre }}</button></a>{% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+{% if cuadros %}
+<section class="panel-bloque timelapse">
+  <div class="timelapse-pantalla">
+    <img id="tl-imagen" src="{{ cuadros.0.url }}" alt="Foto del día {{ cuadros.0.dia }}">
+    <div class="timelapse-rotulo"><strong id="tl-dia">Día {{ cuadros.0.dia }}</strong><span id="tl-detalle">{{ cuadros.0.fecha }}{% if cuadros.0.etapa %} · {{ cuadros.0.etapa }}{% endif %}</span></div>
+  </div>
+  <div class="timelapse-controles">
+    <button id="tl-play" class="primario" type="button">▶ Reproducir</button>
+    <input id="tl-barra" type="range" min="0" max="{{ cuadros|length|add:'-1' }}" value="0" aria-label="Día del ciclo">
+    <div class="selector-horas" role="group" aria-label="Velocidad">
+      <button type="button" data-fps="2">Lento</button><button type="button" data-fps="5" class="activo">Normal</button><button type="button" data-fps="10">Rápido</button>
+    </div>
+    <button id="tl-video" type="button" title="Arma un video para compartir">Descargar video</button>
+  </div>
+  <p class="nota" id="tl-estado">{{ cuadros|length }} fotos{% if camara_activa %} · la próxima se saca a las {{ camara_activa.hora_foto }} h{% endif %}.</p>
+</section>
+
+<section class="panel-bloque">
+  <h2>Todas las fotos</h2>
+  <div class="fotos-grilla" id="tl-tira">
+    {% for c in cuadros %}<a href="#" data-i="{{ forloop.counter0 }}"><img src="{{ c.url }}" alt="Día {{ c.dia }}" loading="lazy"><span>Día {{ c.dia }}</span></a>{% endfor %}
+  </div>
+</section>
+{{ cuadros|json_script:"tl-datos" }}
+{% else %}
+<section class="panel-bloque vacio-grande">
+  {% include "cultivo/_icono.html" with nombre="camara" %}
+  <h2>Todavía no hay fotos de este ciclo</h2>
+  <p class="nota">{% if camara_activa %}La cámara «{{ camara_activa.nombre }}» saca una foto por día a las {{ camara_activa.hora_foto }} h. Con unos días de fotos ya se arma el time-lapse.{% else %}Conectá una cámara y dejá activada la foto diaria: el sistema saca una por día y arma el time-lapse solo.{% endif %}</p>
+  <a href="{% url 'camara' ciclo.sala_id %}"><button type="button">Configurar cámaras</button></a>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if cuadros %}
+<script>
+  const cuadros = JSON.parse(document.getElementById("tl-datos").textContent);
+  const img = document.getElementById("tl-imagen"), barra = document.getElementById("tl-barra");
+  const play = document.getElementById("tl-play"), estado = document.getElementById("tl-estado");
+  let i = 0, fps = 5, reloj = null;
+
+  // Se precargan las fotos para que la reproducción no parpadee
+  const imagenes = cuadros.map(c => { const im = new Image(); im.src = c.url; return im; });
+
+  function mostrar(n) {
+    i = n;
+    const c = cuadros[i];
+    img.src = c.url;
+    img.alt = `Foto del día ${c.dia}`;
+    barra.value = i;
+    document.getElementById("tl-dia").textContent = `Día ${c.dia}`;
+    document.getElementById("tl-detalle").textContent = c.fecha + (c.etapa ? ` · ${c.etapa}` : "");
+  }
+  function parar() { clearInterval(reloj); reloj = null; play.textContent = "▶ Reproducir"; }
+  function arrancar() {
+    if (i >= cuadros.length - 1) mostrar(0);
+    play.textContent = "❚❚ Pausa";
+    reloj = setInterval(() => { if (i >= cuadros.length - 1) return parar(); mostrar(i + 1); }, 1000 / fps);
+  }
+  play.addEventListener("click", () => reloj ? parar() : arrancar());
+  barra.addEventListener("input", () => { parar(); mostrar(Number(barra.value)); });
+  document.querySelectorAll("#tl-tira a").forEach(a => a.addEventListener("click", e => {
+    e.preventDefault(); parar(); mostrar(Number(a.dataset.i)); window.scrollTo({top: 0, behavior: "smooth"});
+  }));
+  document.querySelectorAll(".timelapse-controles [data-fps]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".timelapse-controles [data-fps]").forEach(x => x.classList.remove("activo"));
+    b.classList.add("activo"); fps = Number(b.dataset.fps);
+    if (reloj) { parar(); arrancar(); }
+  }));
+
+  // Video para compartir: se dibuja cada foto en un lienzo y el navegador lo graba (sin programas extra)
+  document.getElementById("tl-video").addEventListener("click", async () => {
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+      estado.textContent = "Este navegador no puede armar el video. Probá con Chrome o Edge.";
+      return;
+    }
+    parar();
+    await Promise.all(imagenes.map(im => im.complete ? null : new Promise(r => { im.onload = im.onerror = r; })));
+    const lienzo = document.createElement("canvas");
+    lienzo.width = 1280; lienzo.height = 720;
+    const ctx = lienzo.getContext("2d");
+    const grabador = new MediaRecorder(lienzo.captureStream(30), {mimeType: "video/webm"});
+    const partes = [];
+    grabador.ondataavailable = e => e.data.size && partes.push(e.data);
+    grabador.onstop = () => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob(partes, {type: "video/webm"}));
+      a.download = "timelapse-{{ ciclo.codigo_lote|escapejs }}.webm";
+      a.click();
+      estado.textContent = "Video listo: se descargó en tu computadora.";
+    };
+    function dibujar(n) {
+      const im = imagenes[n], c = cuadros[n];
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+      const k = Math.min(lienzo.width / (im.naturalWidth || 640), lienzo.height / (im.naturalHeight || 400));
+      const w = (im.naturalWidth || 640) * k, h = (im.naturalHeight || 400) * k;
+      try { ctx.drawImage(im, (lienzo.width - w) / 2, (lienzo.height - h) / 2, w, h); } catch (e) { /* foto dañada */ }
+      ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(24, lienzo.height - 92, 460, 68);
+      ctx.fillStyle = "#fff"; ctx.font = "600 34px sans-serif"; ctx.fillText(`Día ${c.dia}`, 44, lienzo.height - 48);
+      ctx.font = "22px sans-serif"; ctx.fillText(c.fecha + (c.etapa ? ` · ${c.etapa}` : ""), 190, lienzo.height - 48);
+    }
+    grabador.start();
+    for (let n = 0; n < cuadros.length; n++) {
+      estado.textContent = `Armando el video… ${n + 1} de ${cuadros.length}`;
+      dibujar(n);
+      await new Promise(r => setTimeout(r, 1000 / fps));
+    }
+    await new Promise(r => setTimeout(r, 600));  // el último cuadro queda un momento en pantalla
+    grabador.stop();
+  });
+</script>
+{% endif %}
+{% endblock %}

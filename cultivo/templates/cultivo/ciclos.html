@@ -1,0 +1,19 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Ciclos{% endblock %}
+{% block contenido %}
+<section class="encabezado"><div><h1>Ciclos de cultivo</h1><p class="sub">Cada ciclo es un lote con su plan de cultivo, su bitácora y su trazabilidad.</p></div>
+  <a href="{% url 'nuevo_ciclo' sala.id %}"><button class="primario">Nuevo ciclo</button></a></section>
+<div class="panel-bloque">
+  <table class="datos">
+    <thead><tr><th>Lote</th><th>Cultivo</th><th>Plan de cultivo</th><th>Inicio</th><th>Fin</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for c in ciclos %}
+      <tr><td><a href="{% url 'ciclo_detalle' c.id %}">{{ c.codigo_lote }}</a></td><td>{{ c.cultivo }}</td><td>{{ c.receta }}</td>
+      <td>{{ c.fecha_inicio|date:"d/m/Y" }}</td><td>{{ c.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+      <td>{% if c.activo %}<span class="chip chip-acento">En curso · día {{ c.dia }}</span>{% else %}<span class="chip">Finalizado</span>{% endif %}</td>
+      <td><a href="{% url 'timelapse' c.id %}">▶ Time-lapse</a></td></tr>
+    {% empty %}<tr><td colspan="7" class="vacio">No hay ciclos.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

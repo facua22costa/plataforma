@@ -1,0 +1,62 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Panel{% endblock %} · Plataforma de cultivo</title>
+  <link rel="stylesheet" href="{% static 'cultivo/estilos.css' %}">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="{% static 'cultivo/graficos.js' %}"></script>
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <span class="logo" aria-hidden="true">◐</span>
+      <span>Plataforma de cultivo</span>
+    </div>
+    {% if user.is_authenticated and sala %}
+    <nav class="menu">
+      <a href="{% url 'panel_sala' sala.id %}" class="{% if seccion == 'panel' %}activo{% endif %}">Panel</a>
+      <a href="{% url 'mi_cultivo' sala.id %}" class="{% if seccion == 'cultivo' %}activo{% endif %}">Mi cultivo</a>
+      <a href="{% url 'equipos' sala.id %}" class="{% if seccion == 'equipos' or seccion == 'camara' %}activo{% endif %}">Equipos y cámaras</a>
+      <a href="{% url 'historial' sala.id %}" class="{% if seccion == 'historial' or seccion == 'experimento' %}activo{% endif %}">Historial</a>
+      <a href="{% url 'ciclos' sala.id %}" class="{% if seccion == 'ciclos' %}activo{% endif %}">Ciclos</a>
+      <span class="menu-separador" aria-hidden="true"></span>
+      <span class="menu-secundario">
+        <a href="{% url 'mis_cultivos' %}" class="{% if seccion == 'mis_cultivos' %}activo{% endif %}">Mis salas{% if salas|length > 1 %} <span class="contador">{{ salas|length }}</span>{% endif %}</a>
+        <a href="{% url 'nuevo_ciclo' sala.id %}" class="{% if seccion == 'recetas' %}activo{% endif %}">Planes de cultivo</a>
+        <a href="{% url 'kit' sala.id %}" class="{% if seccion == 'kit' %}activo{% endif %}">Nuestro kit</a>
+        <a href="{% url 'ayuda' sala.id %}" class="{% if seccion == 'ayuda' %}activo{% endif %}">Ayuda</a>
+      </span>
+    </nav>
+    <div class="usuario">
+      {% if salas|length > 1 %}
+      <select onchange="location.href=this.value" aria-label="Sala">
+        {% for s in salas %}<option value="{% url 'panel_sala' s.id %}" {% if s.id == sala.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+      </select>
+      {% else %}<span class="sala-nombre">{{ sala.nombre }}</span>{% endif %}
+      <a href="{% url 'admin:index' %}" class="enlace-admin">Administración</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="enlace">Salir</button></form>
+    </div>
+    {% endif %}
+  </header>
+
+  <main class="contenido">
+    {% if messages %}
+    <div class="mensajes">
+      {% for m in messages %}<div class="mensaje {{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% block contenido %}{% endblock %}
+  </main>
+  <script>
+    // Cámaras tipo "foto": se vuelve a pedir la imagen cada tantos segundos
+    document.querySelectorAll("img[data-intervalo]").forEach(img => {
+      const base = img.getAttribute("src");
+      const ms = Math.max(2, parseInt(img.dataset.intervalo, 10) || 10) * 1000;
+      setInterval(() => { img.src = base + (base.includes("?") ? "&" : "?") + "t=" + Date.now(); }, ms);
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

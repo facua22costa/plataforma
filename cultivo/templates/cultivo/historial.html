@@ -1,0 +1,128 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Historial{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>¿Cómo estuvo el ambiente?</h1>
+  <p class="sub">Elegí qué querés mirar y en qué período. Abajo te lo explicamos en palabras.</p></div>
+</section>
+
+{% if comparacion %}
+<section class="panel-bloque mejora" style="margin-bottom:16px">
+  <div class="mejora-titular">
+    <p class="estado-pregunta">Lo que cambió con el sistema</p>
+    <h2>{% if comparacion.mejora > 0 %}Tu cultivo pasa <strong>{{ comparacion.mejora }} puntos más</strong> de tiempo en el clima ideal{% elif comparacion.mejora == 0 %}El tiempo en el clima ideal se mantuvo igual{% else %}El tiempo en el clima ideal bajó {{ comparacion.diferencia }} puntos: revisá tu plan y tus equipos{% endif %}</h2>
+  </div>
+  <div class="mejora-cifras">
+    <div><span class="tile-rotulo">Sequedad del aire (VPD) en rango</span>
+      <span class="mejora-par"><span class="antes">{{ comparacion.antes }}%</span><span aria-hidden="true">→</span><span class="despues">{{ comparacion.despues }}%</span></span>
+      <span class="nota">Horario fijo → control automático</span></div>
+    <div><span class="tile-rotulo">Veces por día que hubo que corregir a mano</span>
+      <span class="mejora-par"><span class="antes">{{ comparacion.manuales_antes }}</span><span aria-hidden="true">→</span><span class="despues">{{ comparacion.manuales_despues }}</span></span>
+      <span class="nota">Misma sala, mismo cultivo</span></div>
+  </div>
+  <p class="nota"><a href="{% url 'experimento' sala.id %}">Ver la comparación completa, día por día →</a></p>
+</section>
+{% endif %}
+
+<section class="panel-bloque" style="margin-bottom:16px">
+  <h2>Calificación del ambiente</h2>
+  <p class="nota">Puntaje de 0 a 100: qué porcentaje del tiempo estuvieron en rango la sequedad del aire, la temperatura y la humedad.</p>
+  <div class="tiles">
+    <div class="tile"><span class="tile-rotulo">Hoy</span><span class="tile-numero" id="p-hoy">—</span><span class="tile-cal" id="c-hoy"></span></div>
+    <div class="tile"><span class="tile-rotulo">Últimos 7 días</span><span class="tile-numero" id="p-semana">—</span><span class="tile-cal" id="c-semana"></span></div>
+    <div class="tile"><span class="tile-rotulo">Últimos 30 días</span><span class="tile-numero" id="p-mes">—</span><span class="tile-cal" id="c-mes"></span></div>
+  </div>
+  <div class="calendario" id="calendario" aria-label="Puntaje por día"></div>
+  <div class="calendario-ref"><span class="c-ref nivel-0"></span>Malo <span class="c-ref nivel-1"></span>Regular <span class="c-ref nivel-2"></span>Bueno <span class="c-ref nivel-3"></span>Muy bueno</div>
+</section>
+
+<div class="panel-bloque">
+  <div class="fila-controles">
+    <div class="chips-variable" role="group" aria-label="Variable" id="variables">
+      <button data-variable="vpd" class="activo">Sequedad del aire (VPD)</button>
+      <button data-variable="temperatura">Temperatura</button>
+      <button data-variable="humedad">Humedad</button>
+      <button data-variable="co2">CO₂</button>
+      <button data-variable="ph">pH</button>
+      <button data-variable="ec">Nutrientes (EC)</button>
+    </div>
+    <div class="selector-horas" role="group" aria-label="Período" id="periodos">
+      <button data-dias="1">Hoy</button><button data-dias="7" class="activo">7 días</button>
+      <button data-dias="30">30 días</button><button data-dias="ciclo">Todo el ciclo</button>
+    </div>
+  </div>
+  <p class="nota" id="que-es"></p>
+</div>
+
+<section class="grilla-2" style="margin-top:16px">
+  <details class="panel-bloque detalle-tecnico">
+    <summary><strong>Ver el gráfico detallado</strong> <span class="nota">(valor a valor, para análisis técnico)</span></summary>
+    <div id="grafico" class="grafico"></div>
+    <p class="nota">La franja verde es el rango ideal de cada etapa del cultivo.</p>
+  </details>
+  <div class="panel-bloque">
+    <h2>En pocas palabras</h2>
+    <ul class="frases" id="frases"><li>Cargando…</li></ul>
+  </div>
+</section>
+
+<div class="panel-bloque" style="margin-top:16px">
+  <h2>¿En qué momentos se sale de rango?</h2>
+  <p class="nota">Cada fila es un día y cada cuadrito una hora. Gris: estuvo bien. Azul o rojo: se fue por debajo o por encima del rango; cuanto más intenso, más lejos. Así se ven de un vistazo los horarios problemáticos.</p>
+  <div id="mapa" class="grafico"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const urlSerie = "{% url 'api_serie' sala.id %}";
+  const urlResumen = "{% url 'api_resumen' sala.id %}";
+  let variable = "vpd", dias = "7";
+
+  async function actualizar() {
+    const r = await (await fetch(`${urlResumen}?variable=${variable}&dias=${dias}`)).json();
+    document.getElementById("que-es").textContent = r.que_es;
+    document.getElementById("frases").innerHTML = r.frases.map(f => `<li>${f}</li>`).join("");
+    graficarMapa("mapa", r);
+    const desde = r.desde.slice(0, 10), hasta = r.hasta.slice(0, 10);
+    const {series} = await (await fetch(`${urlSerie}?variables=${variable}&desde=${desde}&hasta=${hasta}`)).json();
+    graficarConBanda("grafico", series[variable], `${r.nombre} (${r.unidad})`);
+  }
+
+  function grupo(id, alElegir) {
+    document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener("click", () => {
+      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove("activo"));
+      b.classList.add("activo");
+      alElegir(b);
+      actualizar();
+    }));
+  }
+  function calificar(p) { return p === null ? "Sin datos" : p >= 80 ? "Muy bueno" : p >= 60 ? "Bueno" : p >= 40 ? "Regular" : "Malo"; }
+  function nivel(p) { return p >= 80 ? 3 : p >= 60 ? 2 : p >= 40 ? 1 : 0; }
+  (async () => {
+    const d = await (await fetch("{% url 'api_puntajes' sala.id %}")).json();
+    for (const k of ["hoy", "semana", "mes"]) {
+      document.getElementById("p-" + k).textContent = d[k] ?? "—";
+      document.getElementById("c-" + k).textContent = calificar(d[k]);
+    }
+    const dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+    const cal = document.getElementById("calendario");
+    cal.innerHTML = dias.map(x => `<span class="cal-dia">${x}</span>`).join("");
+    if (d.dias.length) {
+      const primero = new Date(d.dias[0].fecha + "T12:00:00");
+      for (let i = 0; i < (primero.getDay() + 6) % 7; i++) cal.insertAdjacentHTML("beforeend", "<span></span>");
+    }
+    for (const x of d.dias) {
+      const f = new Date(x.fecha + "T12:00:00");
+      const n = x.puntaje === null ? "sin" : nivel(x.puntaje);
+      cal.insertAdjacentHTML("beforeend",
+        `<span class="cal-celda nivel-${n}" title="${f.toLocaleDateString("es-AR")}: ${x.puntaje ?? "—"} (${x.calificacion})"><small>${f.getDate()}/${f.getMonth() + 1}</small><b>${x.puntaje ?? "—"}</b></span>`);
+    }
+  })();
+  document.querySelector(".detalle-tecnico").addEventListener("toggle", e => {
+    if (e.target.open) Plotly.Plots.resize("grafico");
+  });
+  grupo("variables", b => variable = b.dataset.variable);
+  grupo("periodos", b => dias = b.dataset.dias);
+  actualizar();
+</script>
+{% endblock %}

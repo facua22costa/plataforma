@@ -1,0 +1,89 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Antes y después{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><p class="nota"><a href="{% url 'historial' sala.id %}">← Volver al historial</a></p><h1>Antes y después del sistema</h1>
+  <p class="sub">Cómo estaba el cultivo con los equipos a horario fijo, y cómo está desde que el sistema decide según lo que mide. Misma instalación, mismo cultivo.</p></div>
+</section>
+
+{% if resumen|length >= 2 %}
+{% with antes=resumen.0 ahora=resumen.1 %}
+<section class="hero">
+  <article class="estado-general">
+    <div>
+      <p class="estado-pregunta">Tiempo con la sequedad del aire (VPD) en el rango ideal</p>
+      <h2 class="estado-titulo comparacion">
+        <span>{{ antes.estadisticas.0.en_rango|floatformat:0 }}%</span>
+        <span class="flecha" aria-hidden="true">→</span>
+        <span>{{ ahora.estadisticas.0.en_rango|floatformat:0 }}%</span>
+      </h2>
+      <p class="estado-resumen">Con equipos a horario fijo, frente a control automático por mediciones.</p>
+    </div>
+  </article>
+  <article class="estado-general">
+    <div>
+      <p class="estado-pregunta">Intervenciones manuales por día</p>
+      <h2 class="estado-titulo comparacion"><span>{{ antes.manuales_por_dia }}</span><span class="flecha" aria-hidden="true">→</span><span>{{ ahora.manuales_por_dia }}</span></h2>
+      <p class="estado-resumen">Veces que alguien tuvo que entrar a corregir a mano.</p>
+    </div>
+  </article>
+</section>
+{% endwith %}
+{% endif %}
+
+<div class="panel-bloque">
+  <h2>Comparación de períodos</h2>
+  <table class="datos">
+    <thead><tr><th>Período</th><th class="num">Días</th>
+      <th class="num">VPD en rango</th><th class="num">Desvío VPD</th>
+      <th class="num">Temp. en rango</th><th class="num">HR en rango</th>
+      <th class="num">Intervenciones manuales / día</th><th class="num">Alertas</th></tr></thead>
+    <tbody>
+    {% for r in resumen %}
+      <tr>
+        <td><strong>{{ r.periodo.nombre }}</strong><br><small class="nota">{{ r.periodo.inicio|date:"d/m" }} – {{ r.periodo.fin|date:"d/m"|default:"hoy" }}</small></td>
+        <td class="num">{{ r.dias }}</td>
+        {% with vpd=r.estadisticas.0 temp=r.estadisticas.1 hr=r.estadisticas.2 %}
+        <td class="num">{% include "cultivo/_pct.html" with valor=vpd.en_rango %}</td>
+        <td class="num">{{ vpd.desvio|default:"—" }} kPa</td>
+        <td class="num">{% include "cultivo/_pct.html" with valor=temp.en_rango %}</td>
+        <td class="num">{% include "cultivo/_pct.html" with valor=hr.en_rango %}</td>
+        {% endwith %}
+        <td class="num">{{ r.manuales_por_dia }}</td>
+        <td class="num">{{ r.alertas }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="8" class="vacio">No hay períodos cargados. Crealos desde Administración → Períodos de experimento.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel-bloque" style="margin-top:16px">
+  <div id="grafico-exp" class="grafico" style="min-height:360px"></div>
+  <p class="nota">Porcentaje diario del tiempo con el VPD dentro del rango de la receta. Las zonas sombreadas marcan cada período.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (async () => {
+    const r = await fetch("{% url 'api_experimento' sala.id %}");
+    const d = await r.json();
+    if (!d.dias.length) return;
+    const layout = layoutBase("VPD en rango por día", "% del día");
+    layout.height = 360;
+    layout.yaxis.range = [0, 100];
+    layout.showlegend = false;
+    layout.shapes = d.periodos.map(p => ({
+      type: "rect", xref: "x", yref: "paper", layer: "below", x0: p.inicio, x1: p.fin, y0: 0, y1: 1,
+      fillcolor: p.modo === "lazo_cerrado" ? css("--acento-fondo") : "rgba(127,127,127,0.08)", line: {width: 0},
+    }));
+    layout.annotations = d.periodos.map(p => ({
+      x: p.inicio, xref: "x", y: 1, yref: "paper", text: p.nombre, showarrow: false,
+      xanchor: "left", yanchor: "bottom", font: {size: 11, color: css("--texto-2")},
+    }));
+    Plotly.react("grafico-exp", [{
+      x: d.dias, y: d.series.vpd.y, type: "bar", name: "VPD en rango",
+      marker: {color: css("--acento")}, hovertemplate: "%{y:.1f}%<extra></extra>",
+    }], layout, CONFIG);
+  })();
+</script>
+{% endblock %}

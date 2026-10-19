@@ -1,0 +1,37 @@
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("", views.panel, name="panel"),
+    path("mis-cultivos/", views.mis_cultivos, name="mis_cultivos"),
+    path("mis-cultivos/nueva-sala/", views.nueva_sala, name="nueva_sala"),
+    path("ciclo/<int:ciclo_id>/etapa/", views.cambiar_etapa, name="cambiar_etapa"),
+    path("sala/<int:sala_id>/", views.panel, name="panel_sala"),
+    path("sala/<int:sala_id>/historial/", views.historial, name="historial"),
+    path("sala/<int:sala_id>/ciclos/", views.ciclos, name="ciclos"),
+    path("sala/<int:sala_id>/experimento/", views.experimento, name="experimento"),
+    path("sala/<int:sala_id>/ayuda/", views.ayuda, name="ayuda"),
+    path("sala/<int:sala_id>/accion/", views.accion_rapida, name="accion_rapida"),
+    path("sala/<int:sala_id>/pausa/", views.pausa, name="pausa"),
+    path("sala/<int:sala_id>/nuevo-ciclo/", views.nuevo_ciclo, name="nuevo_ciclo"),
+    path("sala/<int:sala_id>/mi-cultivo/", views.mi_cultivo, name="mi_cultivo"),
+    path("sala/<int:sala_id>/equipos/", views.equipos, name="equipos"),
+    path("sala/<int:sala_id>/solucion/", views.registrar_solucion, name="registrar_solucion"),
+    path("sala/<int:sala_id>/kit/", views.kit, name="kit"),
+    path("sala/<int:sala_id>/camara/", views.camara, name="camara"),
+    path("sala/<int:sala_id>/camara/demo.svg", views.camara_demo, name="camara_demo"),
+    path("camara/<int:pk>/foto/", views.camara_foto, name="camara_foto"),
+    path("camara/<int:pk>/quitar/", views.camara_quitar, name="camara_quitar"),
+    path("api/sala/<int:sala_id>/horas/", views.api_horas, name="api_horas"),
+    path("api/sala/<int:sala_id>/puntajes/", views.api_puntajes, name="api_puntajes"),
+    path("api/sala/<int:sala_id>/resumen/", views.api_resumen, name="api_resumen"),
+    path("ciclo/<int:pk>/", views.ciclo_detalle, name="ciclo_detalle"),
+    path("ciclo/<int:ciclo_id>/timelapse/", views.timelapse, name="timelapse"),
+    path("ciclo/<int:ciclo_id>/bitacora/nuevo/", views.bitacora_nuevo, name="bitacora_nuevo"),
+    path("actuador/<int:pk>/comando/", views.actuador_comando, name="actuador_comando"),
+    path("alerta/<int:pk>/resolver/", views.alerta_resolver, name="alerta_resolver"),
+    path("api/sala/<int:sala_id>/estado/", views.api_estado, name="api_estado"),
+    path("api/sala/<int:sala_id>/serie/", views.api_serie, name="api_serie"),
+    path("api/sala/<int:sala_id>/experimento/", views.api_experimento, name="api_experimento"),
+]

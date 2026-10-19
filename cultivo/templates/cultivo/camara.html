@@ -1,0 +1,58 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Cámara{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>Tu cultivo en vivo</h1>
+  <p class="sub">Mirá {{ sala.nombre }} desde cualquier lugar. Cada cámara saca sola una foto por día y con ellas se arma el time-lapse del ciclo.</p></div>
+  {% if ciclo %}<a href="{% url 'timelapse' ciclo.id %}"><button class="primario" type="button">▶ Ver el time-lapse</button></a>{% endif %}
+</section>
+
+{% if camaras %}
+<section class="camaras-grilla">
+  {% for cam in camaras %}
+  <div>
+    {% include "cultivo/_camara.html" with cam=cam volver=request.path %}
+    <div class="camara-quitar"><span class="nota">{% if cam.foto_diaria %}Foto diaria a las {{ cam.hora_foto }} h{% else %}Sin foto diaria{% endif %}</span>
+    <form method="post" action="{% url 'camara_quitar' cam.id %}">{% csrf_token %}<button class="enlace">Quitar esta cámara</button></form></div>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<section class="panel-bloque vacio-grande">
+  {% include "cultivo/_icono.html" with nombre="camara" %}
+  <h2>Todavía no hay cámaras en {{ sala.nombre }}</h2>
+  <p class="nota">Sumá una con el formulario de abajo. Sirve hasta un celular viejo.</p>
+</section>
+{% endif %}
+
+{% if fotos %}
+<section class="panel-bloque">
+  <h2>Últimas fotos del ciclo</h2>
+  <div class="fotos-grilla">
+    {% for f in fotos %}<a href="{{ f.foto.url }}" target="_blank" rel="noopener"><img src="{{ f.foto.url }}" alt="{{ f.descripcion }}" loading="lazy"><span>{{ f.momento|date:"d/m H:i" }}</span></a>{% endfor %}
+  </div>
+  {% if ciclo %}<p class="nota"><a href="{% url 'ciclo_detalle' ciclo.id %}">Ver la bitácora completa →</a></p>{% endif %}
+</section>
+{% endif %}
+
+<section class="grilla-2">
+  <div class="panel-bloque">
+    <h2>Agregar una cámara</h2>
+    <form method="post" class="formulario">{% csrf_token %}
+      {% for campo in form %}
+      <div><label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% if campo.help_text %}<span class="nota">{{ campo.help_text }}</span>{% endif %}{{ campo.errors }}</div>
+      {% endfor %}
+      <div><button class="primario">Agregar cámara</button></div>
+    </form>
+  </div>
+  <div class="panel-bloque">
+    <h2>¿Qué cámara puedo usar?</h2>
+    <ul class="opciones-camara">
+      <li><strong>Cámara del kit (ESP32-CAM)</strong><span>Placa con cámara y WiFi de bajo costo. Video: <code>http://IP:81/stream</code> · Foto: <code>http://IP/capture</code></span></li>
+      <li><strong>Un celular que ya no uses</strong><span>Con una app de cámara IP (por ejemplo, IP Webcam en Android). Video: <code>http://IP:8080/video</code> · Foto: <code>http://IP:8080/shot.jpg</code></span></li>
+      <li><strong>Cámaras IP o de seguridad</strong><span>Las que entregan RTSP se conectan a través de un convertidor (go2rtc o MediaMTX) que las pasa a video MJPEG.</span></li>
+    </ul>
+    <p class="nota">La cámara tiene que estar en la misma red que la plataforma. «IP» es la dirección que muestra la cámara o tu router.</p>
+  </div>
+</section>
+{% endblock %}

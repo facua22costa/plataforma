@@ -1,0 +1,320 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Panel{% endblock %}
+{% block contenido %}
+<section class="encabezado encabezado-compacto">
+  <div>
+    <h1>{{ sala.nombre }}</h1>
+    {% if ciclo %}
+    <p class="sub">{{ ciclo.cultivo }} · lote <a href="{% url 'ciclo_detalle' ciclo.id %}">{{ ciclo.codigo_lote }}</a>{% if linea %} · día {{ linea.dia }} del ciclo{% endif %}</p>
+    {% endif %}
+  </div>
+  <div class="chips">
+    {% if periodo %}<span class="chip {% if periodo.modo == 'lazo_cerrado' %}chip-acento{% endif %}">{{ periodo.get_modo_display }}</span>{% endif %}
+    {% if exterior.temp_exterior %}<span class="chip">Afuera {{ exterior.temp_exterior.valor|floatformat:0 }} °C · {{ exterior.humedad_exterior.valor|floatformat:0 }}% humedad</span>{% endif %}
+    <span class="chip chip-quieto" id="actualizado">Actualizando…</span>
+  </div>
+</section>
+
+
+{% if simple.pausado %}
+<div class="aviso-pausa">
+  {% include "cultivo/_icono.html" with nombre="pausar" %}
+  <div><strong>El control automático está en pausa.</strong> El sistema sigue midiendo y avisando, pero no prende ni apaga nada.</div>
+  <form method="post" action="{% url 'pausa' sala.id %}">{% csrf_token %}<button class="primario">Reanudar</button></form>
+</div>
+{% endif %}
+{% if not ciclo %}
+<div class="aviso-pausa">
+  {% include "cultivo/_icono.html" with nombre="hoja" %}
+  <div><strong>No hay un cultivo en curso.</strong> Contale al sistema qué estás cultivando para que sepa qué valores buscar.</div>
+  <a href="{% url 'nuevo_ciclo' sala.id %}"><button class="primario" type="button">Empezar un ciclo</button></a>
+</div>
+{% endif %}
+
+{# ------------------------------------------------ 1. Vista: cámara + cómo está el cultivo #}
+<section class="vista">
+  <div class="vista-camara">
+    {% if camara %}
+      {% include "cultivo/_camara.html" with cam=camara volver=request.path %}
+      <p class="nota vista-camara-pie">{% if ciclo %}<a href="{% url 'timelapse' ciclo.id %}"><strong>▶ Time-lapse del cultivo</strong></a> · {% endif %}{% if camaras_total > 1 %}<a href="{% url 'camara' sala.id %}">Ver las {{ camaras_total }} cámaras</a> · {% endif %}<a href="{% url 'camara' sala.id %}">Fotos y configuración</a></p>
+    {% else %}
+      <a class="camara-vacia" href="{% url 'camara' sala.id %}">
+        {% include "cultivo/_icono.html" with nombre="camara" %}
+        <strong>Mirá tu cultivo en vivo</strong>
+        <span>Conectá la cámara del kit o un celular viejo. Tocá acá para agregarla.</span>
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="vista-estado">
+    <article class="estado-general estado-{{ simple.diagnostico.estado }}" id="estado-general">
+      <svg viewBox="0 0 120 120" class="anillo" role="img" aria-label="Puntaje del ambiente: {{ simple.puntaje|default:'sin datos' }} de 100">
+        <circle cx="60" cy="60" r="50" class="anillo-fondo"/>
+        <circle cx="60" cy="60" r="50" class="anillo-valor" id="anillo-valor" pathLength="100"
+                stroke-dasharray="{{ simple.puntaje|default:0 }} 100" transform="rotate(-90 60 60)"/>
+        <text x="60" y="58" class="anillo-numero" id="anillo-numero">{{ simple.puntaje|default:"—" }}</text>
+        <text x="60" y="78" class="anillo-sub">de 100</text>
+      </svg>
+      <div>
+        <p class="estado-pregunta">¿Cómo está el cultivo ahora?</p>
+        <h2 class="estado-titulo" id="estado-titulo">{{ simple.diagnostico.titulo }}</h2>
+        <p class="estado-resumen" id="estado-resumen">{{ simple.diagnostico.resumen }}</p>
+        <p class="nota">Puntaje de las últimas 24 h: <strong id="calificacion">{{ simple.calificacion|lower }}</strong></p>
+      </div>
+    </article>
+
+    {% if linea %}
+    <article class="etapa-compacta">
+      <div>
+        <span class="estado-pregunta">Etapa</span>
+        <strong>{{ linea.actual.nombre|default:"—" }} · día {{ linea.dias_en_etapa|default:"—" }}</strong>
+        <span class="nota">{% if linea.pasado_estimado and linea.siguiente %}Suele durar unos {{ linea.estimado_actual }} días. ¿Ya pasó a {{ linea.siguiente.nombre|lower }}?{% else %}Suele durar unos {{ linea.estimado_actual }} días; el cambio lo decidís vos.{% endif %}</span>
+      </div>
+      {% if linea.siguiente %}
+      <form method="post" action="{% url 'cambiar_etapa' ciclo.id %}">{% csrf_token %}
+        <input type="hidden" name="etapa" value="{{ linea.siguiente.id }}">
+        <button class="{% if linea.pasado_estimado %}primario{% endif %}" title="{% if linea.cambio_luz %}Las luces pasan de {{ linea.actual.horas_luz }} a {{ linea.siguiente.horas_luz }} h{% endif %}">Pasar a {{ linea.siguiente.nombre }} →</button>
+      </form>
+      {% endif %}
+    </article>
+    {% endif %}
+
+    {% if simple.recomendaciones %}
+    <a class="recomendacion-destacada" href="{% url 'equipos' sala.id %}">
+      {% include "cultivo/_icono.html" with nombre="atencion" %}
+      <span><strong>{{ simple.recomendaciones.0.titulo }}</strong>{{ simple.recomendaciones.0.texto }}</span>
+    </a>
+    {% endif %}
+  </div>
+</section>
+
+{# ------------------------------------------------ 2. Las mediciones #}
+<section class="tarjetas" id="tarjetas">
+  {% for t in tarjetas %}
+  <article class="tarjeta estado-{{ t.estado }}" data-variable="{{ t.variable }}">
+    <header>{% include "cultivo/_icono.html" with nombre=t.variable %}<span>{{ t.nombre_simple }}</span></header>
+    <div class="valor"><span class="numero">{{ t.texto }}</span> <span class="unidad">{{ t.unidad }}</span></div>
+    {% if t.minimo is not None %}
+    <div class="pastilla pastilla-{{ t.estado }}"><span class="pastilla-texto">{{ t.etiqueta_estado }}</span></div>
+    <div class="regla" aria-hidden="true"><span class="marca-valor"></span></div>
+    <div class="regla-rotulos"><span>Bajo</span><span>Ideal {{ t.minimo }}–{{ t.maximo }}</span><span>Alto</span></div>
+    {% else %}
+    <div class="pastilla pastilla-sin-rango"><span class="pastilla-texto">Solo informativo</span></div>
+    {% endif %}
+    {% if t.aviso %}<p class="aviso-etapa">{% include "cultivo/_icono.html" with nombre="info" %}<span><strong>En esta etapa:</strong> {{ t.aviso }}</span></p>{% endif %}
+    {% if t.que_es %}<details class="que-es"><summary>¿Qué es?</summary><p>{{ t.que_es }}</p></details>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+{# ------------------------------------------------ 3. Acciones rápidas #}
+<section class="botonera" aria-label="Acciones rápidas">
+  <form method="post" action="{% url 'accion_rapida' sala.id %}">{% csrf_token %}
+    <button name="accion" value="ventilar" class="boton-grande">{% include "cultivo/_icono.html" with nombre="ventilar" %}<span><strong>Ventilar</strong><small>15 minutos</small></span></button>
+    <button name="accion" value="calentar" class="boton-grande">{% include "cultivo/_icono.html" with nombre="calentar" %}<span><strong>Calentar</strong><small>30 minutos</small></span></button>
+    <button name="accion" value="auto" class="boton-grande {% if simple.modo_auto %}activo{% endif %}">{% include "cultivo/_icono.html" with nombre="auto" %}<span><strong>Todo automático</strong><small>{% if simple.modo_auto %}Activo{% elif simple.pausado %}En pausa{% else %}Hay equipos en manual{% endif %}</small></span></button>
+  </form>
+  <form method="post" action="{% url 'pausa' sala.id %}">{% csrf_token %}
+    <button class="boton-grande {% if simple.pausado %}activo{% endif %}">{% include "cultivo/_icono.html" with nombre="pausar" %}<span><strong>{% if simple.pausado %}Reanudar el sistema{% else %}Pausar el sistema{% endif %}</strong><small>{% if simple.pausado %}Está en modo manual{% else %}Pasar todo a manual{% endif %}</small></span></button>
+  </form>
+  {% if ciclo %}
+  <a class="boton-grande" href="{% url 'bitacora_nuevo' ciclo.id %}?tipo=riego">{% include "cultivo/_icono.html" with nombre="nota" %}<span><strong>Anotar</strong><small>riego, aplicación, plaga, foto</small></span></a>
+  {% endif %}
+</section>
+
+{% if novedades %}
+<section class="novedades" aria-label="Novedades y consejos" id="novedades">
+  <span class="novedades-etiqueta">{% include "cultivo/_icono.html" with nombre="info" %}¿Sabías que…?</span>
+  <div class="novedades-ventana">
+    {% for n in novedades %}
+    <p class="novedad {% if forloop.first %}visible{% endif %}">{{ n.texto }}{% if n.url %} <a href="{{ n.url }}">{{ n.accion }} →</a>{% endif %}</p>
+    {% endfor %}
+  </div>
+  <span class="novedades-puntos" aria-hidden="true">{% for n in novedades %}<i class="{% if forloop.first %}on{% endif %}"></i>{% endfor %}</span>
+</section>
+{% endif %}
+
+{# ------------------------------------------------ 4. Evolución, mediciones manuales y equipos #}
+<section class="grilla-2">
+  <div class="panel-bloque">
+    <h2>¿Cómo viene evolucionando?</h2>
+    <div class="fila-controles">
+      <div class="chips-variable" role="group" aria-label="Variable">
+        <button data-variable="vpd" class="activo">Sequedad del aire (VPD)</button>
+        <button data-variable="temperatura">Temperatura</button>
+        <button data-variable="humedad">Humedad del aire</button>
+        <button data-variable="co2">CO₂</button>
+      </div>
+      <div class="selector-horas" role="group" aria-label="Período">
+        <button data-horas="6">6 h</button><button data-horas="24" class="activo">24 h</button><button data-horas="168">7 días</button>
+      </div>
+    </div>
+    <div id="grafico" class="grafico"></div>
+    <p class="nota">La franja verde es el rango ideal para la etapa. Cuando la línea sale de la franja, el sistema actúa con tus equipos o te avisa.</p>
+    <p class="nota"><a href="{% url 'historial' sala.id %}">Ver días anteriores, el mapa de calor y la nota de cada día →</a></p>
+  </div>
+
+  <div class="columna">
+    {% if simple.recomendaciones %}
+    <div class="panel-bloque">
+      <h2>El sistema te recomienda</h2>
+      <ul class="recomendaciones">
+        {% for r in simple.recomendaciones %}
+        <li class="rec-{{ r.tipo }}">{% include "cultivo/_icono.html" with nombre="atencion" %}<div><strong>{{ r.titulo }}</strong><span>{{ r.texto }}</span></div></li>
+        {% endfor %}
+      </ul>
+      <p class="nota"><a href="{% url 'equipos' sala.id %}">Configurar mis equipos →</a></p>
+    </div>
+    {% endif %}
+
+    {% if ciclo.fertilizacion != "organica" %}
+    <div class="panel-bloque">
+      <h2>Solución nutritiva: medición del día</h2>
+      {% if hay_sondas %}
+      <p class="nota">Tu kit mide pH y EC solo. Si querés, cargá una medición de control con tu medidor.</p>
+      {% else %}
+      <p class="nota">{% if ultima_medicion %}Última medición: {{ ultima_medicion.momento|date:"d/m H:i" }}.{% else %}Todavía no cargaste ninguna medición.{% endif %} Con una por día alcanza.</p>
+      {% endif %}
+      <form method="post" action="{% url 'registrar_solucion' sala.id %}" class="medicion-form">{% csrf_token %}
+        <label>pH <input name="ph" inputmode="decimal" placeholder="6,0"></label>
+        <label>EC <input name="ec" inputmode="decimal" placeholder="1,8"></label>
+        <button class="primario">Guardar</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="panel-bloque">
+      <h2>Qué hizo el sistema</h2>
+      <ul class="actividad">
+        {% for a in actividad %}
+        <li><time>{{ a.momento|date:"H:i" }}</time><span>{{ a.texto }}</span><span class="origen origen-{{ a.origen_clave }}">{{ a.origen }}</span></li>
+        {% empty %}<li class="vacio">Todavía no hubo acciones.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="panel-bloque">
+      <h2>Equipos <a class="enlace-titulo" href="{% url 'equipos' sala.id %}">Configurar</a></h2>
+      <ul class="actuadores" id="actuadores">
+        {% for a in actuadores %}
+        <li data-id="{{ a.id }}">
+          <span class="equipo-icono {% if a.encendido %}on{% endif %}">{% include "cultivo/_icono.html" with nombre=a.tipo %}</span>
+          <div class="act-texto">
+            <strong>{{ a.nombre }}</strong>
+            <small><span class="estado-equipo">{% if a.encendido %}Encendido{% else %}Apagado{% endif %}</span> · {% if a.modo == 'manual' %}Manual{% if a.manual_hasta %} hasta las {{ a.manual_hasta|time:"H:i" }}{% endif %}{% else %}Automático{% endif %}</small>
+          </div>
+          <form method="post" action="{% url 'actuador_comando' a.id %}" class="botones">{% csrf_token %}
+            <button name="comando" value="encender" title="Encender a mano">On</button>
+            <button name="comando" value="apagar" title="Apagar a mano">Off</button>
+            {% if a.modo == 'manual' %}<button name="comando" value="auto" class="primario" title="Volver a automático">Auto</button>{% endif %}
+          </form>
+        </li>
+        {% empty %}<li class="vacio">No hay equipos configurados.</li>{% endfor %}
+      </ul>
+    </div>
+
+    {% if alertas %}
+    <div class="panel-bloque">
+      <h2>Avisos pendientes</h2>
+      <ul class="alertas">
+        {% for al in alertas %}
+        <li class="alerta-{{ al.nivel }}">
+          <div><strong>{{ al.mensaje }}</strong><small>{{ al.momento|date:"d/m H:i" }}</small></div>
+          <form method="post" action="{% url 'alerta_resolver' al.id %}">{% csrf_token %}<button title="Marcar como visto">Visto</button></form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const urlEstado = "{% url 'api_estado' sala.id %}";
+  const urlSerie = "{% url 'api_serie' sala.id %}";
+  let horas = 24, variable = "vpd";
+
+  function pintarTarjetas(tarjetas) {
+    for (const t of tarjetas) {
+      const el = document.querySelector(`.tarjeta[data-variable="${t.variable}"]`);
+      if (!el) continue;
+      el.className = el.className.replace(/estado-[\w-]+/, `estado-${t.estado}`);
+      el.querySelector(".numero").textContent = t.texto;
+      const pastilla = el.querySelector(".pastilla");
+      if (pastilla && t.minimo !== null) {
+        pastilla.className = `pastilla pastilla-${t.estado}`;
+        pastilla.querySelector(".pastilla-texto").textContent = t.etiqueta_estado;
+      }
+      const marca = el.querySelector(".marca-valor");
+      if (marca && t.minimo !== null && t.valor !== null) {
+        const ancho = t.maximo - t.minimo, lo = t.minimo - ancho, hi = t.maximo + ancho;
+        const pos = Math.max(0, Math.min(1, (t.valor - lo) / (hi - lo)));
+        marca.style.left = `calc(${pos * 100}% - 7px)`;
+        marca.style.display = "block";
+      }
+    }
+  }
+
+  async function actualizarEstado() {
+    try {
+      const d = await (await fetch(urlEstado)).json();
+      pintarTarjetas(d.tarjetas);
+      const eg = document.getElementById("estado-general");
+      eg.className = eg.className.replace(/estado-[\w-]+/, `estado-${d.diagnostico.estado}`);
+      document.getElementById("estado-titulo").textContent = d.diagnostico.titulo;
+      document.getElementById("estado-resumen").textContent = d.diagnostico.resumen;
+      if (d.puntaje !== null) {
+        document.getElementById("anillo-numero").textContent = d.puntaje;
+        document.getElementById("anillo-valor").setAttribute("stroke-dasharray", `${d.puntaje} 100`);
+        document.getElementById("calificacion").textContent = d.calificacion;
+      }
+      for (const a of d.actuadores) {
+        const li = document.querySelector(`#actuadores li[data-id="${a.id}"]`);
+        if (!li) continue;
+        li.querySelector(".equipo-icono").classList.toggle("on", a.encendido);
+        li.querySelector(".estado-equipo").textContent = a.encendido ? "Encendido" : "Apagado";
+      }
+      document.getElementById("actualizado").textContent = "Actualizado " +
+        new Date(d.momento).toLocaleTimeString("es-AR", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    } catch (e) {
+      document.getElementById("actualizado").textContent = "Sin conexión con el servidor";
+    }
+  }
+
+  const NOMBRES = {vpd: "Sequedad del aire (VPD)", temperatura: "Temperatura", humedad: "Humedad del aire", co2: "CO₂"};
+  async function actualizarGrafico() {
+    const {series} = await (await fetch(`${urlSerie}?horas=${horas}&variables=${variable}`)).json();
+    const s = series[variable];
+    graficarConBanda("grafico", s, `${NOMBRES[variable]} (${s.unidad})`);
+  }
+  function grupoBotones(selector, alElegir) {
+    document.querySelectorAll(`${selector} button`).forEach(b => b.addEventListener("click", () => {
+      document.querySelectorAll(`${selector} button`).forEach(x => x.classList.remove("activo"));
+      b.classList.add("activo");
+      alElegir(b);
+      actualizarGrafico();
+    }));
+  }
+  grupoBotones(".selector-horas", b => horas = Number(b.dataset.horas));
+  grupoBotones(".chips-variable", b => variable = b.dataset.variable);
+
+  // Novedades que rotan
+  (() => {
+    const items = document.querySelectorAll("#novedades .novedad");
+    const puntos = document.querySelectorAll("#novedades .novedades-puntos i");
+    if (items.length < 2) return;
+    let i = 0;
+    setInterval(() => {
+      items[i].classList.remove("visible"); puntos[i].classList.remove("on");
+      i = (i + 1) % items.length;
+      items[i].classList.add("visible"); puntos[i].classList.add("on");
+    }, 7000);
+  })();
+
+  actualizarEstado();
+  actualizarGrafico();
+  setInterval(actualizarEstado, 10000);
+  setInterval(actualizarGrafico, 60000);
+</script>
+{% endblock %}

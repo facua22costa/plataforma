@@ -1,0 +1,1 @@
+{% if valor is None %}<span class="nota">—</span>{% else %}<span class="pct {% if valor >= 80 %}pct-alto{% elif valor >= 50 %}pct-medio{% else %}pct-bajo{% endif %}">{{ valor|floatformat:1 }}%</span>{% endif %}

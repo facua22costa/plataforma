@@ -1,0 +1,8 @@
+{% extends "cultivo/base.html" %}
+{% block contenido %}
+<div class="panel-bloque">
+  <h1>Todavía no hay datos</h1>
+  <p>Creá una sala desde <a href="{% url 'admin:index' %}">Administración</a> o generá datos de demostración con:</p>
+  <pre>python manage.py simular --reset</pre>
+</div>
+{% endblock %}

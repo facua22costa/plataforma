@@ -1,0 +1,64 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Lote {{ ciclo.codigo_lote }}{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div>
+    <h1>Lote {{ ciclo.codigo_lote }}</h1>
+    <p class="sub">{{ ciclo.cultivo }} · Receta {{ ciclo.receta }} · Inicio {{ ciclo.fecha_inicio|date:"d/m/Y" }}
+      {% if ciclo.activo %}· Día {{ ciclo.dia }} · Etapa <strong>{{ etapa.nombre }}</strong>{% else %}· Fin {{ ciclo.fecha_fin|date:"d/m/Y" }}{% endif %}</p>
+  </div>
+  <div class="chips">
+    <a href="{% url 'timelapse' ciclo.id %}"><button type="button">▶ Time-lapse</button></a>
+    <a href="{% url 'bitacora_nuevo' ciclo.id %}"><button class="primario">Registrar evento</button></a>
+  </div>
+</section>
+
+{% if ciclo.receta.fuentes %}
+<details class="panel-bloque que-es" style="margin-bottom:16px">
+  <summary>Plan de cultivo: {{ ciclo.receta.nombre }} · ¿de dónde salen los valores?</summary>
+  <p style="white-space: pre-line">{{ ciclo.receta.fuentes }}</p>
+</details>
+{% endif %}
+<div class="panel-bloque">
+  <h2>Cumplimiento del plan de cultivo</h2>
+  <p class="nota">Porcentaje del tiempo que cada variable estuvo dentro del rango objetivo de la etapa.</p>
+  <table class="datos">
+    <thead><tr><th>Etapa</th><th>Período</th>
+      <th class="num">VPD</th><th class="num">Temp.</th><th class="num">HR</th><th class="num">CO₂</th><th class="num">pH</th><th class="num">EC</th></tr></thead>
+    <tbody>
+    {% for fila in cumplimiento %}
+      <tr>
+        <td><strong>{{ fila.etapa.nombre }}</strong></td>
+        <td>{{ fila.inicio|date:"d/m" }} – {% if fila.futura %}…{% else %}{{ fila.fin|date:"d/m" }}{% endif %}</td>
+        {% if fila.futura %}<td colspan="6" class="nota">Etapa futura</td>
+        {% else %}{% for v in fila.valores %}<td class="num">{% include "cultivo/_pct.html" with valor=v.en_rango %}</td>{% endfor %}{% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="grilla-2" style="margin-top:16px">
+  <div class="panel-bloque">
+    <h2>Bitácora</h2>
+    <table class="datos">
+      <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">pH</th><th class="num">EC</th><th>Detalle</th></tr></thead>
+      <tbody>
+      {% for e in eventos %}
+        <tr><td>{{ e.momento|date:"d/m H:i" }}</td><td>{{ e.get_tipo_display }}</td>
+          <td class="num">{{ e.ph|floatformat:2|default:"—" }}</td><td class="num">{{ e.ec|floatformat:2|default:"—" }}</td><td>{{ e.descripcion }}{% if e.foto %}<a class="foto-mini" href="{{ e.foto.url }}" target="_blank" rel="noopener"><img src="{{ e.foto.url }}" alt="Foto del {{ e.momento|date:'d/m' }}" loading="lazy"></a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5" class="vacio">Sin eventos registrados.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel-bloque">
+    <h2>Cosechas</h2>
+    <ul class="lista">
+      {% for c in cosechas %}
+        <li>{{ c.fecha|date:"d/m/Y" }} · {{ c.peso_humedo_g|floatformat:"-2" }} {{ c.unidad }}{% if c.peso_seco_g %} · {{ c.peso_seco_g|floatformat:"-2" }} {{ c.unidad }} en seco{% endif %}{% if c.calidad %} · calidad {{ c.calidad }}/5{% endif %}</li>
+      {% empty %}<li class="vacio">Todavía no hay cosechas registradas.</li>{% endfor %}
+    </ul>
+    <p class="nota"><a href="{% url 'admin:cultivo_cosecha_add' %}">Registrar cosecha</a></p>
+  </div>
+</section>
+{% endblock %}

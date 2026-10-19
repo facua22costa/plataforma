@@ -1,0 +1,46 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Equipos{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>¿Qué equipos tenés en {{ sala.nombre }}?</h1>
+  <p class="sub">El sistema controla los que tenés. Para los que faltan, no puede corregir solo: te avisa y te recomienda.</p></div>
+</section>
+
+<form method="post">{% csrf_token %}
+  <section class="equipos-lista">
+    {% for e in lista %}
+    <label class="equipo-opcion {% if e.cantidad %}tiene{% endif %}">
+      <span class="equipo-icono {% if e.cantidad %}on{% endif %}">{% include "cultivo/_icono.html" with nombre=e.tipo %}</span>
+      <div class="equipo-texto">
+        <strong>{{ e.nombre }}</strong>
+        <span class="nota">{{ e.texto }}</span>
+        <span class="equipo-estado">{% if e.cantidad %}Lo controla el sistema{% else %}No lo tenés: el sistema solo avisa{% endif %}</span>
+      </div>
+      {% if e.maximo %}
+      <span class="equipo-cantidad"><small class="nota">¿Cuántos?</small><input type="number" name="{{ e.tipo }}" min="0" max="{{ e.maximo }}" value="{{ e.cantidad }}" aria-label="Cantidad de {{ e.nombre|lower }}"></span>
+      {% else %}
+      <input type="checkbox" name="{{ e.tipo }}" {% if e.cantidad %}checked{% endif %} aria-label="{{ e.nombre }}">
+      {% endif %}
+    </label>
+    {% endfor %}
+  </section>
+  <div class="barra-guardar"><button class="primario">Guardar mis equipos</button></div>
+</form>
+
+<section class="panel-bloque" style="margin-top:16px">
+  <h2>{% include "cultivo/_icono.html" with nombre="camara" %} Cámaras <a class="enlace-titulo" href="{% url 'camara' sala.id %}">Agregar o configurar</a></h2>
+  <ul class="lista">
+    {% for c in camaras %}<li>{{ c.nombre }} · {{ c.get_tipo_display|lower }}</li>
+    {% empty %}<li class="vacio">No hay cámaras. Con una ves la sala en vivo desde el panel.</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="panel-bloque" style="margin-top:16px">
+  <h2>Lo que el sistema te recomienda ahora</h2>
+  <ul class="recomendaciones">
+    {% for r in simple.recomendaciones %}
+    <li class="rec-{{ r.tipo }}">{% include "cultivo/_icono.html" with nombre="atencion" %}<div><strong>{{ r.titulo }}</strong><span>{{ r.texto }}</span></div></li>
+    {% empty %}<li class="vacio">Con los equipos que tenés, el sistema puede corregir todo lo que está midiendo ahora.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

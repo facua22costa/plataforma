@@ -1,0 +1,5 @@
+Django>=5.0,<6.0
+# Opcionales (se usan al conectar hardware real):
+# tinytuya>=1.13      # interruptores Tuya / Smart Life
+# paho-mqtt>=2.0      # comunicación con el nodo ESP32
+# psycopg[binary]>=3.1  # PostgreSQL / TimescaleDB

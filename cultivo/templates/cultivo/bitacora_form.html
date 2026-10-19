@@ -1,0 +1,13 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Registrar evento{% endblock %}
+{% block contenido %}
+<section class="encabezado"><div><h1>Registrar evento</h1><p class="sub">Lote {{ ciclo.codigo_lote }} · {{ ciclo.cultivo }}</p></div></section>
+<div class="panel-bloque">
+  <form method="post" class="formulario" enctype="multipart/form-data">{% csrf_token %}
+    {% for campo in form %}
+      <div><label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{{ campo.errors }}</div>
+    {% endfor %}
+    <div><button class="primario">Guardar</button> <a href="{% url 'ciclo_detalle' ciclo.id %}">Cancelar</a></div>
+  </form>
+</div>
+{% endblock %}

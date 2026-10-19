@@ -1,0 +1,47 @@
+{% extends "cultivo/base.html" %}
+{% block titulo %}Mis salas{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <div><h1>Mis salas e invernaderos</h1>
+  <p class="sub">Cada sala o invernadero tiene sus propios sensores y su propio clima, así que cada uno lleva su cultivo y su plan.</p></div>
+</section>
+
+<section class="salas">
+  {% for t in tarjetas %}
+  <article class="sala-tarjeta {% if t.simple %}estado-{{ t.simple.diagnostico.estado }}{% endif %}">
+    <header>
+      <h2>{{ t.sala.nombre }}</h2>
+      {% if t.sala.control_pausado %}<span class="chip">En pausa</span>{% endif %}
+    </header>
+    {% if t.ciclo %}
+    <div class="sala-cultivo">
+      {% include "cultivo/_icono.html" with nombre="hoja" %}
+      <div><strong>{{ t.ciclo.cultivo }}</strong><span class="nota">{{ t.etapa.nombre|default:"—" }} · día {{ t.linea.dias_en_etapa|default:"—" }} de la etapa</span></div>
+    </div>
+    <div class="sala-estado">
+      <span class="sala-puntaje">{{ t.simple.puntaje|default:"—" }}<small>/100</small></span>
+      <div><strong>{{ t.simple.diagnostico.titulo }}</strong><span class="nota">Puntaje de las últimas 24 h: {{ t.simple.calificacion|lower }}</span></div>
+    </div>
+    <div class="sala-acciones">
+      <a href="{% url 'panel_sala' t.sala.id %}"><button class="primario" type="button">Abrir panel</button></a>
+      <a href="{% url 'mi_cultivo' t.sala.id %}"><button type="button">Ver plan</button></a>
+    </div>
+    {% else %}
+    <p class="nota">Todavía no le dijiste al sistema qué se cultiva acá.</p>
+    <div class="sala-acciones">
+      <a href="{% url 'nuevo_ciclo' t.sala.id %}"><button class="primario" type="button">Elegir cultivo</button></a>
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+
+  <article class="sala-tarjeta sala-nueva">
+    <h2>Agregar una sala o invernadero</h2>
+    <p class="nota">Por ejemplo: "Invernadero 2" o "Sala de plantines". Después elegís qué se cultiva ahí.</p>
+    <form method="post" action="{% url 'nueva_sala' %}" class="fila-form">{% csrf_token %}
+      <input name="nombre" placeholder="Nombre" required aria-label="Nombre de la sala">
+      <button class="primario">Agregar</button>
+    </form>
+  </article>
+</section>
+{% endblock %}

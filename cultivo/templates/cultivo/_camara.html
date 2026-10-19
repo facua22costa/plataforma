@@ -1,0 +1,15 @@
+{# Vista de una cámara. Variables: cam (Camara), sala, volver (url) #}
+<figure class="camara-vista" data-estado="cargando">
+  <img src="{{ cam.url }}" alt="{{ cam.nombre }} en vivo" loading="lazy"
+       {% if cam.tipo == "foto" %}data-intervalo="{{ cam.intervalo_seg }}"{% endif %}
+       onload="this.parentElement.dataset.estado='ok'" onerror="this.parentElement.dataset.estado='error'">
+  <span class="camara-envivo">{% if cam.tipo == "video" %}En vivo{% else %}Cada {{ cam.intervalo_seg }} s{% endif %}</span>
+  <div class="camara-sin-senal">{% include "cultivo/_icono.html" with nombre="atencion" %}<span>Sin señal de la cámara.<br><small>Revisá que esté encendida y en la misma red WiFi.</small></span></div>
+  <figcaption>
+    <span>{{ cam.nombre }}</span>
+    <form method="post" action="{% url 'camara_foto' cam.id %}">{% csrf_token %}
+      <input type="hidden" name="volver" value="{{ volver }}">
+      <button type="submit" title="Guarda una foto en la bitácora del ciclo">{% include "cultivo/_icono.html" with nombre="camara" %}Sacar foto</button>
+    </form>
+  </figcaption>
+</figure>
